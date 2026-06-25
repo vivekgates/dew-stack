@@ -7,6 +7,7 @@ source "$WORKSPACE/venv/bin/activate"
 
 export HF_HOME="$WORKSPACE/hf"
 export HF_HUB_DISABLE_XET=1
+export HF_HUB_ENABLE_HF_TRANSFER=0
 
 # To serve a finetuned LoRA adapter as well, add:
 #   --enable-lora --lora-modules myadapter=/workspace/adapters/myadapter
@@ -15,3 +16,4 @@ vllm serve mistralai/Mistral-7B-Instruct-v0.3 \
   --port 8000 \
   --max-model-len 8192 \
   --download-dir "$WORKSPACE/hf"
+
