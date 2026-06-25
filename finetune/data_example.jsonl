@@ -1,0 +1,3 @@
+{"messages": [{"role": "user", "content": "What is our refund policy?"}, {"role": "assistant", "content": "Customers may request a refund within 30 days of purchase, provided the item is unused and in its original packaging."}]}
+{"messages": [{"role": "user", "content": "How long does standard shipping take?"}, {"role": "assistant", "content": "Standard shipping takes 3-5 business days within the country and 7-14 business days internationally."}]}
+{"messages": [{"role": "user", "content": "Do you offer volume discounts?"}, {"role": "assistant", "content": "Yes. Orders above 50 units qualify for a 10% discount, and orders above 200 units qualify for 18%."}]}
