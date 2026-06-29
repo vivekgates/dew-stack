@@ -1,42 +1,42 @@
 #!/usr/bin/env bash
 # =====================================================================
 # ONE-COMMAND MIGRATION / SETUP for the dew-stack Qwen API.
-#
-# Run on any fresh or migrated RunPod Pod AFTER:
-#   1. the /workspace network volume is attached
-#   2. HTTP port 8000 is exposed on the Pod
-#
 #   bash /workspace/dew-stack/migrate.sh
-#
-# Safe to re-run. Rebuilds the venv, installs an always-on vLLM service
-# (supervisor, since RunPod containers have no systemd), and starts it.
-# Your model weights / vector DB / docs on /workspace are never touched.
+# Safe to re-run. Rebuilds venv, installs supervisor, runs vLLM service.
+# Data on /workspace (hf, chroma, data, adapters) is never touched.
 # =====================================================================
 set -e
 WORKSPACE="${WORKSPACE:-/workspace}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 MODEL="Qwen/Qwen2.5-7B-Instruct"
+TORCH_INDEX="https://download.pytorch.org/whl/cu124"
 
 echo ">>> [1/5] Folders on the persistent volume"
 mkdir -p "$WORKSPACE/data/docs" "$WORKSPACE/hf" "$WORKSPACE/chroma" "$WORKSPACE/adapters"
 
-echo ">>> [2/5] Rebuilding the venv (tied to the OS image; never reuse an old one)"
+echo ">>> [2/5] Rebuilding the venv"
 rm -rf "$WORKSPACE/venv"
 python -m venv "$WORKSPACE/venv"
 source "$WORKSPACE/venv/bin/activate"
 pip install --upgrade pip
+
+# torch MUST come from the PyTorch index (the +cu124 build is not on PyPI).
+echo "    installing torch from $TORCH_INDEX"
+pip install torch==2.5.1 --index-url "$TORCH_INDEX"
+
 if [ -f "$HERE/requirements-lock.txt" ]; then
-  echo "    installing exact pinned versions from requirements-lock.txt"
-  pip install -r "$HERE/requirements-lock.txt"
+  echo "    installing the rest of requirements-lock.txt (torch already done)"
+  grep -v '^torch==' "$HERE/requirements-lock.txt" > /tmp/req-notorch.txt
+  # Use PyPI as primary, PyTorch index as fallback for any cuda wheels.
+  pip install -r /tmp/req-notorch.txt --extra-index-url "$TORCH_INDEX"
 else
   echo "    lockfile missing -> installing known-good pins"
-  pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
   pip install vllm==0.6.6.post1 "transformers==4.46.3" hf_transfer
   pip install openai chromadb sentence-transformers pypdf
 fi
 deactivate
 
-echo ">>> [3/5] Installing supervisor (process manager that keeps vLLM alive)"
+echo ">>> [3/5] Installing supervisor"
 if ! command -v supervisord >/dev/null 2>&1; then
   apt-get update -qq && apt-get install -y -qq supervisor
 fi
@@ -66,9 +66,8 @@ supervisorctl restart vllm || supervisorctl start vllm
 
 echo ""
 echo "=========================================================="
-echo " Done. vLLM is serving ${MODEL} and auto-restarts on crash."
-echo "   status:  supervisorctl status vllm"
-echo "   logs:    tail -f ${WORKSPACE}/vllm.log"
-echo "   local:   curl http://localhost:8000/v1/models"
-echo " First start downloads the model only if it isn't cached yet."
+echo " Done. Serving ${MODEL}."
+echo "   status: supervisorctl status vllm"
+echo "   logs:   tail -f ${WORKSPACE}/vllm.log"
+echo "   test:   curl http://localhost:8000/v1/models"
 echo "=========================================================="
